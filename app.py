@@ -17,8 +17,8 @@ class TypingApp:
             "start head story now eye seem problem sometimes public call money read hold kind thought while also often always here every"
         ]
         self.text_to_type = random.choice(self.texts)
+        self.user_input = []
         self.current_index = 0
-        self.incorrect_start_index = None
         self.start_time = None
         self.total_typed = 0
         self.incorrect_typed = 0
@@ -33,7 +33,7 @@ class TypingApp:
         self.container = ttk.Frame(root, style='TFrame')
         self.container.pack(padx=20, pady=20, fill="both", expand=True)
 
-        self.text_display = tk.Text(self.container, font=("Courier", 18), fg="#ecf0f1", bg="#34495e", wrap="none", height=4, width=50)
+        self.text_display = tk.Text(self.container, font=("Courier", 18), fg="#ecf0f1", bg="#1c1c1c", wrap="none", height=4, width=50, insertbackground="#ecf0f1")
         self.text_display.pack(anchor="w", pady=(0, 20), fill="both", expand=True)
 
         self.text_display.insert("1.0", self.text_to_type)
@@ -88,8 +88,10 @@ class TypingApp:
         for i, char in enumerate(display_text):
             global_index = max(0, self.current_index - 50) + i
             if global_index < self.current_index:
-                tag = "correct" if char == self.text_to_type[global_index] else "incorrect"
-                self.text_display.tag_add(tag, f"1.{i}", f"1.{i+1}")
+                if global_index < len(self.user_input):
+                    typed_char = self.user_input[global_index]
+                    tag = "correct" if typed_char == self.text_to_type[global_index] else "incorrect"
+                    self.text_display.tag_add(tag, f"1.{i}", f"1.{i+1}")
             elif global_index == self.current_index:
                 self.text_display.tag_add("current", f"1.{i}", f"1.{i+1}")
             else:
@@ -97,7 +99,7 @@ class TypingApp:
 
         self.text_display.tag_config("correct", foreground="#2ecc71")
         self.text_display.tag_config("incorrect", foreground="#e74c3c")
-        self.text_display.tag_config("current", foreground="#ecf0f1" if self.blink_state else "#34495e", background="#34495e")
+        self.text_display.tag_config("current", foreground="#ecf0f1" if self.blink_state else "#1c1c1c", background="#1c1c1c")
         self.text_display.tag_config("untouched", foreground="#95a5a6")
 
         self.text_display.config(state=tk.DISABLED)
@@ -120,22 +122,23 @@ class TypingApp:
             self.start_time = time.time()
 
         if event.keysym == "BackSpace":
-            if self.incorrect_start_index is not None and self.current_index > self.incorrect_start_index:
+            if self.current_index > 0 and (len(self.user_input) == 0 or self.user_input[-1] != self.text_to_type[self.current_index - 1]):
                 self.current_index -= 1
+                self.total_typed -= 1
+                if self.user_input and self.user_input[-1] != self.text_to_type[self.current_index]:
+                    self.incorrect_typed -= 1
+                self.user_input = self.user_input[:-1]
         elif event.keysym == "Tab":
             self.show_restart_alert()
         elif event.char and len(event.char) == 1 and event.char.isprintable():
             typed_char = event.char
+            self.user_input.append(typed_char)
             correct_char = self.text_to_type[self.current_index]
 
             self.total_typed += 1
             if typed_char == correct_char:
                 self.current_index += 1
-                if self.incorrect_start_index is not None:
-                    self.incorrect_start_index = None
             else:
-                if self.incorrect_start_index is None:
-                    self.incorrect_start_index = self.current_index
                 self.incorrect_typed += 1
                 self.current_index += 1
 
@@ -158,6 +161,7 @@ class TypingApp:
 
     def restart(self):
         self.text_to_type = random.choice(self.texts)
+        self.user_input = []
         self.reset_stats()
         self.countdown(3)
 
@@ -168,10 +172,10 @@ class TypingApp:
 
     def reset_stats(self):
         self.current_index = 0
-        self.incorrect_start_index = None
         self.start_time = None
         self.total_typed = 0
         self.incorrect_typed = 0
+        self.user_input = []
         self.result_label.config(text="")
         self.wpm_label.config(text="WPM: 0.00")
         self.accuracy_label.config(text="Accuracy: 0.00%")
@@ -183,7 +187,6 @@ class TypingApp:
         self.root.after(500, self.blink_cursor)
 
     def on_resize(self, event):
-        # Adjust text display width based on window size
         new_width = event.width // 10
         self.text_display.config(width=new_width)
 
