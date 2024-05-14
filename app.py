@@ -24,8 +24,7 @@ class TypingApp:
         self.container = tk.Frame(root, bg="#1e1e1e")
         self.container.pack(padx=20, pady=20, fill="both", expand=True)
 
-        self.text_display = tk.Text(self.container, font=("Courier", 18), fg="#dcdcdc", bg="#1e1e1e", wrap="word",
-                                    height=4, width=90)
+        self.text_display = tk.Text(self.container, font=("Courier", 18), fg="#dcdcdc", bg="#1e1e1e", wrap="none", height=4, width=90)
         self.text_display.pack(anchor="w", pady=(0, 20))
         self.text_display.insert("1.0", self.text_to_type)
         self.text_display.config(state=tk.DISABLED)
@@ -36,15 +35,13 @@ class TypingApp:
         self.wpm_label = tk.Label(self.stats_frame, text="WPM: 0.00", font=("Courier", 18), fg="#dcdcdc", bg="#1e1e1e")
         self.wpm_label.pack(side="left", padx=(0, 20))
 
-        self.accuracy_label = tk.Label(self.stats_frame, text="Accuracy: 0.00%", font=("Courier", 18), fg="#dcdcdc",
-                                       bg="#1e1e1e")
+        self.accuracy_label = tk.Label(self.stats_frame, text="Accuracy: 0.00%", font=("Courier", 18), fg="#dcdcdc", bg="#1e1e1e")
         self.accuracy_label.pack(side="left")
 
         self.result_label = tk.Label(self.container, text="", font=("Courier", 18), fg="#dcdcdc", bg="#1e1e1e")
         self.result_label.pack(anchor="w", pady=10)
 
-        self.restart_button = tk.Button(self.container, text="Restart", font=("Courier", 18), fg="#dcdcdc", bg="#3e3e3e",
-                                        command=self.restart)
+        self.restart_button = tk.Button(self.container, text="Restart", font=("Courier", 18), fg="#dcdcdc", bg="#3e3e3e", command=self.restart)
         self.restart_button.pack(anchor="w", pady=10)
 
         self.root.bind("<KeyPress>", self.check_input)
@@ -72,14 +69,17 @@ class TypingApp:
         self.text_display.config(state=tk.NORMAL)
         self.text_display.delete("1.0", tk.END)
 
-        for i, char in enumerate(self.text_to_type):
+        display_text = self.text_to_type[self.current_index:]
+        self.text_display.insert("1.0", display_text)
+
+        for i, char in enumerate(display_text):
             if i < self.current_index:
-                typed_char = self.text_to_type[i]  # Corrected to check against the text to type
+                typed_char = self.text_to_type[i]
                 if typed_char == char:
                     self.text_display.insert(tk.END, char, ("correct",))
                 else:
                     self.text_display.insert(tk.END, char, ("incorrect",))
-            elif i == self.current_index:
+            elif i == 0:
                 self.text_display.insert(tk.END, char, ("current",))
             else:
                 self.text_display.insert(tk.END, char, ("untouched",))
@@ -102,19 +102,14 @@ class TypingApp:
 
     def update_stats_real_time(self):
         self.update_stats()
-        self.root.after(1000, self.update_stats_real_time)  # Update stats every second
+        self.root.after(1000, self.update_stats_real_time)
 
     def check_input(self, event):
         if self.start_time is None:
             self.start_time = time.time()
 
         if event.keysym == "BackSpace":
-            if self.current_index > 0:
-                self.current_index -= 1
-                self.total_typed -= 1
-                typed_char = self.text_to_type[self.current_index]  # Corrected to check against the text to type
-                if typed_char != self.text_to_type[self.current_index]:
-                    self.incorrect_typed -= 1
+            pass  # Disable backspace functionality
         elif event.keysym == "Tab":
             self.show_restart_alert()
         elif event.char and len(event.char) == 1 and event.char.isprintable():
