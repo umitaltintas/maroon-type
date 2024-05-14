@@ -20,7 +20,7 @@ class TypingApp:
         self.user_input = []
         self.current_index = 0
         self.start_time = None
-        self.total_typed = 0
+        self.correct_typed = 0
         self.incorrect_typed = 0
         self.blink_state = True
 
@@ -107,9 +107,9 @@ class TypingApp:
     def update_stats(self):
         elapsed_time = time.time() - self.start_time if self.start_time else 0
         if elapsed_time > 0:
-            words_per_minute = (self.current_index / 5) / (elapsed_time / 60)
-            if self.total_typed > 0:
-                accuracy = ((self.current_index - self.incorrect_typed) / self.total_typed) * 100
+            words_per_minute = (self.correct_typed / 5) / (elapsed_time / 60)
+            if len(self.user_input) > 0:
+                accuracy = (self.correct_typed / len(self.user_input)) * 100
                 self.accuracy_label.config(text=f"Accuracy: {accuracy:.2f}%")
             self.wpm_label.config(text=f"WPM: {words_per_minute:.2f}")
 
@@ -122,25 +122,27 @@ class TypingApp:
             self.start_time = time.time()
 
         if event.keysym == "BackSpace":
-            if self.current_index > 0 and (len(self.user_input) == 0 or self.user_input[-1] != self.text_to_type[self.current_index - 1]):
+            if self.current_index > 0:
                 self.current_index -= 1
-                self.total_typed -= 1
-                if self.user_input and self.user_input[-1] != self.text_to_type[self.current_index]:
-                    self.incorrect_typed -= 1
-                self.user_input = self.user_input[:-1]
+                if len(self.user_input) > 0:
+                    last_char = self.user_input.pop()
+                    if last_char == self.text_to_type[self.current_index]:
+                        self.correct_typed -= 1
+                    else:
+                        self.incorrect_typed -= 1
         elif event.keysym == "Tab":
             self.show_restart_alert()
         elif event.char and len(event.char) == 1 and event.char.isprintable():
             typed_char = event.char
-            self.user_input.append(typed_char)
             correct_char = self.text_to_type[self.current_index]
 
-            self.total_typed += 1
+            self.user_input.append(typed_char)
+            self.current_index += 1
+
             if typed_char == correct_char:
-                self.current_index += 1
+                self.correct_typed += 1
             else:
                 self.incorrect_typed += 1
-                self.current_index += 1
 
             if self.current_index == len(self.text_to_type):
                 self.finish_typing()
@@ -150,11 +152,9 @@ class TypingApp:
 
     def finish_typing(self):
         time_taken = time.time() - self.start_time
-        words_per_minute = len(self.text_to_type.split()) / (time_taken / 60)
-        if self.total_typed > 0:
-            accuracy = ((self.current_index - self.incorrect_typed) / self.total_typed) * 100
-        else:
-            accuracy = 0
+        correct_words = self.correct_typed / 5
+        words_per_minute = correct_words / (time_taken / 60)
+        accuracy = (self.correct_typed / len(self.user_input)) * 100 if len(self.user_input) > 0 else 0
         self.result_label.config(text=f"Final WPM: {words_per_minute:.2f}, Final Accuracy: {accuracy:.2f}%")
         self.root.unbind("<KeyPress>")
         self.show_restart_alert()
@@ -173,7 +173,7 @@ class TypingApp:
     def reset_stats(self):
         self.current_index = 0
         self.start_time = None
-        self.total_typed = 0
+        self.correct_typed = 0
         self.incorrect_typed = 0
         self.user_input = []
         self.result_label.config(text="")
