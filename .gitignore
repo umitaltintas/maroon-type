@@ -1,0 +1,25 @@
+# .gitignore
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.tar.gz
+
+# Virtual environment
+venv/
+
+# IDEs
+.vscode/
+*.iml
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
