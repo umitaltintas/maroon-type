@@ -23,6 +23,7 @@ class TypingApp:
         self.correct_typed = 0
         self.incorrect_typed = 0
         self.blink_state = True
+        self.stats_running = True
 
         self.style = ttk.Style()
         self.style.configure('TFrame', background='#2c3e50')
@@ -114,8 +115,9 @@ class TypingApp:
             self.wpm_label.config(text=f"WPM: {words_per_minute:.2f}")
 
     def update_stats_real_time(self):
-        self.update_stats()
-        self.root.after(1000, self.update_stats_real_time)
+        if self.stats_running:
+            self.update_stats()
+            self.root.after(1000, self.update_stats_real_time)
 
     def check_input(self, event):
         if self.start_time is None:
@@ -156,6 +158,7 @@ class TypingApp:
         words_per_minute = correct_words / (time_taken / 60)
         accuracy = (self.correct_typed / len(self.user_input)) * 100 if len(self.user_input) > 0 else 0
         self.result_label.config(text=f"Final WPM: {words_per_minute:.2f}, Final Accuracy: {accuracy:.2f}%")
+        self.stats_running = False
         self.root.unbind("<KeyPress>")
         self.show_restart_alert()
 
@@ -179,12 +182,14 @@ class TypingApp:
         self.result_label.config(text="")
         self.wpm_label.config(text="WPM: 0.00")
         self.accuracy_label.config(text="Accuracy: 0.00%")
+        self.stats_running = True
         self.update_display()
 
     def blink_cursor(self):
         self.blink_state = not self.blink_state
         self.update_display()
-        self.root.after(500, self.blink_cursor)
+        if self.stats_running:
+            self.root.after(500, self.blink_cursor)
 
     def on_resize(self, event):
         new_width = event.width // 10
