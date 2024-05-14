@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
+from tkinter import ttk
 import time
 import random
 
@@ -8,7 +9,7 @@ class TypingApp:
         self.root = root
         self.root.title("Typing Practice App")
         self.root.geometry("800x400")
-        self.root.configure(bg="#1e1e1e")
+        self.root.configure(bg="#2c3e50")
 
         self.texts = [
             "while form small thing that who number part still home however group say because possible real what system form same down",
@@ -17,41 +18,53 @@ class TypingApp:
         ]
         self.text_to_type = random.choice(self.texts)
         self.current_index = 0
+        self.incorrect_start_index = None
         self.start_time = None
         self.total_typed = 0
         self.incorrect_typed = 0
+        self.blink_state = True
 
-        self.container = tk.Frame(root, bg="#1e1e1e")
+        self.style = ttk.Style()
+        self.style.configure('TFrame', background='#2c3e50')
+        self.style.configure('TLabel', background='#2c3e50', foreground='#ecf0f1', font=("Helvetica", 14))
+        self.style.configure('TButton', font=("Helvetica", 14), foreground='#ecf0f1', background='#1abc9c')
+        self.style.map('TButton', background=[('active', '#16a085')])
+
+        self.container = ttk.Frame(root, style='TFrame')
         self.container.pack(padx=20, pady=20, fill="both", expand=True)
 
-        self.text_display = tk.Text(self.container, font=("Courier", 18), fg="#dcdcdc", bg="#1e1e1e", wrap="none", height=4, width=90)
-        self.text_display.pack(anchor="w", pady=(0, 20))
+        self.text_display = tk.Text(self.container, font=("Courier", 18), fg="#ecf0f1", bg="#34495e", wrap="none", height=4, width=50)
+        self.text_display.pack(anchor="w", pady=(0, 20), fill="both", expand=True)
+
         self.text_display.insert("1.0", self.text_to_type)
         self.text_display.config(state=tk.DISABLED)
 
-        self.stats_frame = tk.Frame(self.container, bg="#1e1e1e")
+        self.stats_frame = ttk.Frame(self.container, style='TFrame')
         self.stats_frame.pack(anchor="w", pady=10, fill="x")
 
-        self.wpm_label = tk.Label(self.stats_frame, text="WPM: 0.00", font=("Courier", 18), fg="#dcdcdc", bg="#1e1e1e")
+        self.wpm_label = ttk.Label(self.stats_frame, text="WPM: 0.00", style='TLabel')
         self.wpm_label.pack(side="left", padx=(0, 20))
 
-        self.accuracy_label = tk.Label(self.stats_frame, text="Accuracy: 0.00%", font=("Courier", 18), fg="#dcdcdc", bg="#1e1e1e")
+        self.accuracy_label = ttk.Label(self.stats_frame, text="Accuracy: 0.00%", style='TLabel')
         self.accuracy_label.pack(side="left")
 
-        self.result_label = tk.Label(self.container, text="", font=("Courier", 18), fg="#dcdcdc", bg="#1e1e1e")
+        self.result_label = ttk.Label(self.container, text="", style='TLabel')
         self.result_label.pack(anchor="w", pady=10)
 
-        self.restart_button = tk.Button(self.container, text="Restart", font=("Courier", 18), fg="#dcdcdc", bg="#3e3e3e", command=self.restart)
+        self.restart_button = ttk.Button(self.container, text="Restart", style='TButton', command=self.restart)
         self.restart_button.pack(anchor="w", pady=10)
 
         self.root.bind("<KeyPress>", self.check_input)
         self.root.bind("<Button-1>", self.set_focus)
 
-        self.countdown_label = tk.Label(self.container, text="", font=("Courier", 18), fg="#dcdcdc", bg="#1e1e1e")
+        self.countdown_label = ttk.Label(self.container, text="", style='TLabel')
         self.countdown_label.pack(anchor="w", pady=10)
 
         self.reset_stats()
         self.countdown(3)
+        self.blink_cursor()
+
+        self.root.bind("<Configure>", self.on_resize)
 
     def countdown(self, count):
         if count > 0:
@@ -69,25 +82,23 @@ class TypingApp:
         self.text_display.config(state=tk.NORMAL)
         self.text_display.delete("1.0", tk.END)
 
-        display_text = self.text_to_type[self.current_index:]
+        display_text = self.text_to_type[max(0, self.current_index - 50):self.current_index + 50]
         self.text_display.insert("1.0", display_text)
 
         for i, char in enumerate(display_text):
-            if i < self.current_index:
-                typed_char = self.text_to_type[i]
-                if typed_char == char:
-                    self.text_display.insert(tk.END, char, ("correct",))
-                else:
-                    self.text_display.insert(tk.END, char, ("incorrect",))
-            elif i == 0:
-                self.text_display.insert(tk.END, char, ("current",))
+            global_index = max(0, self.current_index - 50) + i
+            if global_index < self.current_index:
+                tag = "correct" if char == self.text_to_type[global_index] else "incorrect"
+                self.text_display.tag_add(tag, f"1.{i}", f"1.{i+1}")
+            elif global_index == self.current_index:
+                self.text_display.tag_add("current", f"1.{i}", f"1.{i+1}")
             else:
-                self.text_display.insert(tk.END, char, ("untouched",))
+                self.text_display.tag_add("untouched", f"1.{i}", f"1.{i+1}")
 
-        self.text_display.tag_config("correct", foreground="#00FF00")
-        self.text_display.tag_config("incorrect", foreground="#FF0000")
-        self.text_display.tag_config("current", foreground="#dcdcdc", background="#333333")
-        self.text_display.tag_config("untouched", foreground="#555555")
+        self.text_display.tag_config("correct", foreground="#2ecc71")
+        self.text_display.tag_config("incorrect", foreground="#e74c3c")
+        self.text_display.tag_config("current", foreground="#ecf0f1" if self.blink_state else "#34495e", background="#34495e")
+        self.text_display.tag_config("untouched", foreground="#95a5a6")
 
         self.text_display.config(state=tk.DISABLED)
 
@@ -109,7 +120,8 @@ class TypingApp:
             self.start_time = time.time()
 
         if event.keysym == "BackSpace":
-            pass  # Disable backspace functionality
+            if self.incorrect_start_index is not None and self.current_index > self.incorrect_start_index:
+                self.current_index -= 1
         elif event.keysym == "Tab":
             self.show_restart_alert()
         elif event.char and len(event.char) == 1 and event.char.isprintable():
@@ -119,7 +131,11 @@ class TypingApp:
             self.total_typed += 1
             if typed_char == correct_char:
                 self.current_index += 1
+                if self.incorrect_start_index is not None:
+                    self.incorrect_start_index = None
             else:
+                if self.incorrect_start_index is None:
+                    self.incorrect_start_index = self.current_index
                 self.incorrect_typed += 1
                 self.current_index += 1
 
@@ -152,6 +168,7 @@ class TypingApp:
 
     def reset_stats(self):
         self.current_index = 0
+        self.incorrect_start_index = None
         self.start_time = None
         self.total_typed = 0
         self.incorrect_typed = 0
@@ -159,6 +176,16 @@ class TypingApp:
         self.wpm_label.config(text="WPM: 0.00")
         self.accuracy_label.config(text="Accuracy: 0.00%")
         self.update_display()
+
+    def blink_cursor(self):
+        self.blink_state = not self.blink_state
+        self.update_display()
+        self.root.after(500, self.blink_cursor)
+
+    def on_resize(self, event):
+        # Adjust text display width based on window size
+        new_width = event.width // 10
+        self.text_display.config(width=new_width)
 
 if __name__ == "__main__":
     root = tk.Tk()
