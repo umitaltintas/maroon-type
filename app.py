@@ -54,25 +54,22 @@ def generate_word(words):
     return words[word_index]
 
 
-def generate_sentence(weighted_words, min_words, max_words):
+def generate_sentence(words, min_words, max_words):
     num_words = random.randint(min_words, max_words)
-    sentence = " ".join(generate_word(weighted_words) for _ in range(num_words))
+    sentence = " ".join(generate_word(words) for _ in range(num_words))
     return sentence
 
 
-def generate_paragraph(
-    weighted_words, min_sentences, max_sentences, min_words, max_words
-):
+def generate_paragraph(words, min_sentences, max_sentences, min_words, max_words):
     num_sentences = random.randint(min_sentences, max_sentences)
     paragraph = " ".join(
-        generate_sentence(weighted_words, min_words, max_words)
-        for _ in range(num_sentences)
+        generate_sentence(words, min_words, max_words) for _ in range(num_sentences)
     )
     return paragraph
 
 
 def generate_text(
-    weighted_words,
+    words,
     min_paragraphs,
     max_paragraphs,
     min_sentences,
@@ -82,15 +79,13 @@ def generate_text(
 ):
     num_paragraphs = random.randint(min_paragraphs, max_paragraphs)
     text = " ".join(
-        generate_paragraph(
-            weighted_words, min_sentences, max_sentences, min_words, max_words
-        )
+        generate_paragraph(words, min_sentences, max_sentences, min_words, max_words)
         for _ in range(num_paragraphs)
     )
     return text
 
 
-class MaroonTyping:
+class MaroonType:
     def __init__(self, root):
         self.root = root
         self.root.title("Maroon Type")
@@ -531,5 +526,5 @@ class MaroonTyping:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = MaroonTyping(root)
+    app = MaroonType(root)
     root.mainloop()
