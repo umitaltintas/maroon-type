@@ -1,14 +1,28 @@
 import tkinter as tk
-from tkinter import messagebox, ttk, font, IntVar, StringVar, colorchooser
+from tkinter import ttk, font, IntVar, StringVar, colorchooser
 import time
 import random
 import json
 import os
 import bisect
+from urllib.request import urlopen
 
 
 SETTINGS_FILE = "settings.json"
-TEXT_FILE = "20k.txt"
+
+TEXT_FILE = "https://raw.githubusercontent.com/first20hours/google-10000-english/master/20k.txt"  # Replace with the actual URL of the text file
+
+
+def get_words():
+    print("Loading words...")
+    txt = urlopen(TEXT_FILE).read()
+    words = txt.decode("utf-8").splitlines()
+    filtered_words = [
+        word for word in words if len(word) > 3 and word.isalpha() and len(word) < 10
+    ]
+    print(f"Loaded {len(filtered_words)} words")
+
+    return filtered_words
 
 
 def load_settings():
@@ -27,13 +41,6 @@ def load_settings():
 def save_settings(settings):
     with open(SETTINGS_FILE, "w") as file:
         json.dump(settings, file)
-
-
-def get_words():
-    with open(TEXT_FILE, "r") as file:
-        words = file.read().splitlines()
-        filtered_words = [word for word in words if len(word) >= 3 and len(word) <= 8]
-        return filtered_words
 
 
 def generate_word(words):
