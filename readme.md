@@ -12,6 +12,8 @@ Welcome to the Maroon Type, where you can flex your fingers, test your Maroon sp
 - [License](#license)
 
 ## Introduction
+<img width="793" alt="image" src="https://github.com/umitaltintas/maroon-type/assets/57873472/2064ffad-dd08-4f9d-99a3-eb53b72051c9">
+
 
 The Maroon Type is designed to help you improve your Maroon skills. Whether you're an aspiring novelist or just tired of the slow, awkward key-pecking, this app will help you type faster and more accurately. Plus, it's a lot cheaper than hiring a Maroon tutor.
 
