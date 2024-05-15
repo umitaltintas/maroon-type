@@ -1,26 +1,86 @@
 import tkinter as tk
-from tkinter import messagebox
-from tkinter import ttk
+from tkinter import messagebox, ttk, font, IntVar, StringVar
 import time
 import random
-from tkinter import font, messagebox
-from tkinter import IntVar, StringVar
 import json
 import os
 
 SETTINGS_FILE = "settings.json"
+TEXT_FILE = "20k.txt"
 
 
 def load_settings():
     if os.path.exists(SETTINGS_FILE):
         with open(SETTINGS_FILE, "r") as file:
             return json.load(file)
-    return None
+    return {
+        "font_name": "JetBrains Mono",
+        "font_size": 15,
+        "bg_color": "#1c1c1c",
+        "text_color": "#ecf0f1",
+        "difficulty": "Medium",
+    }
 
 
 def save_settings(settings):
     with open(SETTINGS_FILE, "w") as file:
         json.dump(settings, file)
+
+
+def get_words():
+    with open(TEXT_FILE, "r") as file:
+        words = file.read().splitlines()
+        filtered_words = [word for word in words if len(word) >= 3 | len(word) <= 8]
+        return filtered_words
+
+
+def add_weight(words):
+    weighted_words = []
+    total_words = len(words)
+    for index, word in enumerate(words):
+        weight = total_words - index  # Higher index, lower weight
+        weighted_words.extend([word] * weight)
+    return weighted_words
+
+
+def generate_word(weighted_words):
+    return random.choice(weighted_words)
+
+
+def generate_sentence(weighted_words, min_words, max_words):
+    num_words = random.randint(min_words, max_words)
+    sentence = " ".join(generate_word(weighted_words) for _ in range(num_words))
+    return sentence
+
+
+def generate_paragraph(
+    weighted_words, min_sentences, max_sentences, min_words, max_words
+):
+    num_sentences = random.randint(min_sentences, max_sentences)
+    paragraph = " ".join(
+        generate_sentence(weighted_words, min_words, max_words)
+        for _ in range(num_sentences)
+    )
+    return paragraph
+
+
+def generate_text(
+    weighted_words,
+    min_paragraphs,
+    max_paragraphs,
+    min_sentences,
+    max_sentences,
+    min_words,
+    max_words,
+):
+    num_paragraphs = random.randint(min_paragraphs, max_paragraphs)
+    text = "\n\n".join(
+        generate_paragraph(
+            weighted_words, min_sentences, max_sentences, min_words, max_words
+        )
+        for _ in range(num_paragraphs)
+    )
+    return text
 
 
 class TypingApp:
@@ -29,41 +89,18 @@ class TypingApp:
         self.root.title("Typing Practice App")
         self.root.geometry("800x400")
 
-        # Initialize settings variables
         settings = load_settings()
-        if settings:
-            self.font_name = StringVar(value=settings.get("font_name", "Courier"))
-            self.font_size = IntVar(value=settings.get("font_size", 18))
-            self.bg_color = StringVar(value=settings.get("bg_color", "#1c1c1c"))
-            self.text_color = StringVar(value=settings.get("text_color", "#ecf0f1"))
-            self.difficulty = StringVar(value=settings.get("difficulty", "Medium"))
-        else:
-            self.font_name = StringVar(value="Courier")
-            self.font_size = IntVar(value=18)
-            self.bg_color = StringVar(value="#1c1c1c")
-            self.text_color = StringVar(value="#ecf0f1")
-            self.difficulty = StringVar(value="Medium")
+        self.font_name = StringVar(value=settings.get("font_name", "Courier"))
+        self.font_size = IntVar(value=settings.get("font_size", 18))
+        self.bg_color = StringVar(value=settings.get("bg_color", "#1c1c1c"))
+        self.text_color = StringVar(value=settings.get("text_color", "#ecf0f1"))
+        self.difficulty = StringVar(value=settings.get("difficulty", "Medium"))
 
-        # Texts based on difficulty levels
-        self.texts = {
-            "Easy": [
-                "the quick brown fox jumps over the lazy dog",
-                "an apple a day keeps the doctor away",
-            ],
-            "Medium": [
-                "while form small thing that who number part still home however group say because possible real what system form same down",
-                "each life people around write allow know mean number early great world again general between sentence again open study",
-            ],
-            "Hard": [
-                "pneumonoultramicroscopicsilicovolcanoconiosis is a lung disease caused by the inhalation of very fine silicate or quartz dust",
-                "supercalifragilisticexpialidocious even though the sound of it is something quite atrocious",
-            ],
-        }
+        self.words = get_words()
+        self.weighted_words = add_weight(self.words)
+        self.generate_texts()
 
-        # Select initial text to type
-        self.text_to_type = random.choice(self.texts[self.difficulty.get()])
-
-        # User input tracking
+        self.text_to_type = self.texts[self.difficulty.get()]
         self.user_input = []
         self.current_index = 0
         self.start_time = None
@@ -71,8 +108,8 @@ class TypingApp:
         self.incorrect_typed = 0
         self.blink_state = True
         self.stats_running = True
+        self.total_keypresses = 0  # Add this line
 
-        # Setup and create widgets
         self.setup_styles()
         self.create_widgets()
         self.bind_events()
@@ -80,6 +117,37 @@ class TypingApp:
         self.reset_stats()
         self.countdown(3)
         self.blink_cursor()
+
+    def generate_texts(self):
+        self.texts = {
+            "Easy": generate_text(
+                self.weighted_words,
+                min_paragraphs=1,
+                max_paragraphs=1,
+                min_sentences=1,
+                max_sentences=2,
+                min_words=2,
+                max_words=4,
+            ),
+            "Medium": generate_text(
+                self.weighted_words,
+                min_paragraphs=1,
+                max_paragraphs=2,
+                min_sentences=1,
+                max_sentences=3,
+                min_words=3,
+                max_words=5,
+            ),
+            "Hard": generate_text(
+                self.weighted_words,
+                min_paragraphs=2,
+                max_paragraphs=3,
+                min_sentences=2,
+                max_sentences=4,
+                min_words=4,
+                max_words=6,
+            ),
+        }
 
     def setup_styles(self):
         self.root.configure(bg=self.bg_color.get())
@@ -101,23 +169,28 @@ class TypingApp:
 
     def create_widgets(self):
         self.container = ttk.Frame(self.root, style="TFrame")
-        self.container.pack(padx=20, pady=20, fill="both", expand=True)
+        self.container.pack(
+            padx=20,
+            pady=20,
+            fill="both",
+            expand=True,
+        )
 
         self.text_display = tk.Text(
             self.container,
             font=(self.font_name.get(), self.font_size.get()),
             fg=self.text_color.get(),
             bg=self.bg_color.get(),
-            wrap="none",
-            height=4,
-            width=50,
+            wrap="word",
             insertbackground=self.text_color.get(),
         )
-        self.text_display.pack(anchor="w", pady=(0, 20), fill="both", expand=True)
+        # Use pack with fill and expand to ensure it takes up available space
+        self.text_display.pack(anchor="center", pady=(0, 20), fill="both", expand=True)
+
         self.text_display.config(state=tk.DISABLED)
 
         self.stats_frame = ttk.Frame(self.container, style="TFrame")
-        self.stats_frame.pack(anchor="w", pady=10, fill="x")
+        self.stats_frame.pack(anchor="center", pady=10, fill="x")
         self.wpm_label = ttk.Label(self.stats_frame, text="WPM: 0.00", style="TLabel")
         self.wpm_label.pack(side="left", padx=(0, 20))
         self.accuracy_label = ttk.Label(
@@ -126,18 +199,18 @@ class TypingApp:
         self.accuracy_label.pack(side="left")
 
         self.result_label = ttk.Label(self.container, text="", style="TLabel")
-        self.result_label.pack(anchor="w", pady=10)
+        self.result_label.pack(anchor="center", pady=10)
         self.restart_button = ttk.Button(
             self.container, text="Restart", style="TButton", command=self.restart
         )
-        self.restart_button.pack(anchor="w", pady=10)
+        self.restart_button.pack(anchor="center", pady=10)
         self.settings_button = ttk.Button(
             self.container, text="Settings", style="TButton", command=self.open_settings
         )
-        self.settings_button.pack(anchor="w", pady=10)
+        self.settings_button.pack(anchor="center", pady=10)
 
         self.countdown_label = ttk.Label(self.container, text="", style="TLabel")
-        self.countdown_label.pack(anchor="w", pady=10)
+        self.countdown_label.pack(anchor="center", pady=10)
 
     def open_settings(self):
         settings_window = tk.Toplevel(self.root)
@@ -147,7 +220,6 @@ class TypingApp:
         settings_frame = ttk.Frame(settings_window, padding="10", style="TFrame")
         settings_frame.pack(fill="both", expand=True)
 
-        # Font selection
         ttk.Label(settings_frame, text="Font Name:", style="TLabel").pack(
             anchor="w", pady=5
         )
@@ -160,7 +232,6 @@ class TypingApp:
         )
         font_name_combobox.pack(anchor="w", fill="x", pady=5)
 
-        # Difficulty selection
         ttk.Label(settings_frame, text="Select Difficulty:", style="TLabel").pack(
             anchor="w", pady=5
         )
@@ -172,7 +243,6 @@ class TypingApp:
         )
         difficulty_options.pack(anchor="w", fill="x", pady=5)
 
-        # Font size slider
         ttk.Label(settings_frame, text="Adjust Font Size:", style="TLabel").pack(
             anchor="w", pady=5
         )
@@ -185,14 +255,74 @@ class TypingApp:
         )
         font_size_slider.pack(anchor="w", fill="x", pady=5)
 
-        # Background color entry
         ttk.Label(settings_frame, text="Background Color:", style="TLabel").pack(
             anchor="w", pady=5
         )
         bg_color_entry = ttk.Entry(settings_frame, textvariable=self.bg_color)
         bg_color_entry.pack(anchor="w", fill="x", pady=5)
 
-        # Text color entry
+        ttk.Label(settings_frame, text="Text Color:", style="TLabel").pack(
+            anchor="w", pady=5
+        )
+        text_color_entry = ttk.Entry(settings_frame, textvariable=self.text_color)
+        text_color_entry.pack(anchor="w", fill="x", pady=5)
+
+        apply_button = ttk.Button(
+            settings_frame,
+            text="Apply",
+            command=lambda: self.apply_settings(settings_window),
+        )
+        apply_button.pack(anchor="center", pady=20)
+
+    def open_settings(self):
+        settings_window = tk.Toplevel(self.root)
+        settings_window.title("Settings")
+        settings_window.geometry("400x450")
+
+        settings_frame = ttk.Frame(settings_window, padding="10", style="TFrame")
+        settings_frame.pack(fill="both", expand=True)
+
+        ttk.Label(settings_frame, text="Font Name:", style="TLabel").pack(
+            anchor="w", pady=5
+        )
+        available_fonts = font.families()
+        font_name_combobox = ttk.Combobox(
+            settings_frame,
+            textvariable=self.font_name,
+            values=available_fonts,
+            state="readonly",
+        )
+        font_name_combobox.pack(anchor="w", fill="x", pady=5)
+
+        ttk.Label(settings_frame, text="Select Difficulty:", style="TLabel").pack(
+            anchor="w", pady=5
+        )
+        difficulty_options = ttk.Combobox(
+            settings_frame,
+            textvariable=self.difficulty,
+            values=["Easy", "Medium", "Hard"],
+            state="readonly",
+        )
+        difficulty_options.pack(anchor="w", fill="x", pady=5)
+
+        ttk.Label(settings_frame, text="Adjust Font Size:", style="TLabel").pack(
+            anchor="w", pady=5
+        )
+        font_size_slider = ttk.Scale(
+            settings_frame,
+            from_=10,
+            to=50,
+            variable=self.font_size,
+            orient="horizontal",
+        )
+        font_size_slider.pack(anchor="w", fill="x", pady=5)
+
+        ttk.Label(settings_frame, text="Background Color:", style="TLabel").pack(
+            anchor="w", pady=5
+        )
+        bg_color_entry = ttk.Entry(settings_frame, textvariable=self.bg_color)
+        bg_color_entry.pack(anchor="w", fill="x", pady=5)
+
         ttk.Label(settings_frame, text="Text Color:", style="TLabel").pack(
             anchor="w", pady=5
         )
@@ -230,7 +360,8 @@ class TypingApp:
         self.root.bind("<Configure>", self.on_resize)
 
     def restart(self):
-        self.text_to_type = random.choice(self.texts[self.difficulty.get()])
+        self.generate_texts()
+        self.text_to_type = self.texts[self.difficulty.get()]
         self.user_input = []
         self.reset_stats()
         self.countdown(3)
@@ -251,13 +382,31 @@ class TypingApp:
         self.text_display.config(state=tk.NORMAL)
         self.text_display.delete("1.0", tk.END)
 
+        line_width = self.text_display.winfo_screenwidth() // self.font_size.get()
+        # Ensure line_width is not zero to avoid ZeroDivisionError
+        if line_width == 0:
+            line_width = 1
+
+        start_index = max(0, self.current_index - line_width // 2)
         display_text = self.text_to_type[
-            max(0, self.current_index - 50) : self.current_index + 50
+            start_index : self.current_index + line_width // 2
         ]
+
+        lines = []
+        while display_text:
+            lines.append(display_text[:line_width])
+            display_text = display_text[line_width:]
+
+        display_text = "\n".join(lines)
         self.text_display.insert("1.0", display_text)
 
+        cursor_pos = self.current_index - start_index
+        line, col = divmod(cursor_pos, line_width)
+        cursor_index = f"{line + 1}.{col}"
+        self.text_display.mark_set("insert", cursor_index)
+
         for i, char in enumerate(display_text):
-            global_index = max(0, self.current_index - 50) + i
+            global_index = start_index + i
             if global_index < self.current_index:
                 if global_index < len(self.user_input):
                     typed_char = self.user_input[global_index]
@@ -287,15 +436,10 @@ class TypingApp:
         elapsed_time = time.time() - self.start_time if self.start_time else 0
         if elapsed_time > 0:
             words_per_minute = (self.correct_typed / 5) / (elapsed_time / 60)
-            if len(self.user_input) > 0:
-                accuracy = (self.correct_typed / len(self.user_input)) * 100
+            if self.total_keypresses > 0:
+                accuracy = (self.correct_typed / self.total_keypresses) * 100
                 self.accuracy_label.config(text=f"Accuracy: {accuracy:.2f}%")
             self.wpm_label.config(text=f"WPM: {words_per_minute:.2f}")
-
-    def update_stats_real_time(self):
-        if self.stats_running:
-            self.update_stats()
-            self.root.after(1000, self.update_stats_real_time)
 
     def check_input(self, event):
         if self.start_time is None:
@@ -313,6 +457,7 @@ class TypingApp:
         elif event.keysym == "Tab":
             self.show_restart_popup()
         elif event.char and len(event.char) == 1 and event.char.isprintable():
+            self.total_keypresses += 1  # Increment total keypress count
             typed_char = event.char
             correct_char = self.text_to_type[self.current_index]
 
@@ -335,8 +480,8 @@ class TypingApp:
         correct_words = self.correct_typed / 5
         words_per_minute = correct_words / (time_taken / 60)
         accuracy = (
-            (self.correct_typed / len(self.user_input)) * 100
-            if len(self.user_input) > 0
+            (self.correct_typed / self.total_keypresses) * 100
+            if self.total_keypresses > 0
             else 0
         )
         self.result_label.config(
@@ -345,6 +490,24 @@ class TypingApp:
         self.stats_running = False
         self.root.unbind("<KeyPress>")
         self.show_restart_popup()
+
+    def reset_stats(self):
+        self.current_index = 0
+        self.start_time = None
+        self.correct_typed = 0
+        self.incorrect_typed = 0
+        self.total_keypresses = 0  # Reset total keypress count
+        self.user_input = []
+        self.result_label.config(text="")
+        self.wpm_label.config(text="WPM: 0.00")
+        self.accuracy_label.config(text="Accuracy: 0.00%")
+        self.stats_running = True
+        self.update_display()
+
+    def update_stats_real_time(self):
+        if self.stats_running:
+            self.update_stats()
+            self.root.after(1000, self.update_stats_real_time)
 
     def show_restart_popup(self):
         restart_window = tk.Toplevel(self.root)
@@ -376,10 +539,8 @@ class TypingApp:
         restart_window.focus()
         yes_button.focus_set()
 
-        # Set focus to the Yes button
         yes_button.focus()
 
-        # Configure the appearance of the Yes button when focused
         restart_window.tk.call(
             "ttk::style",
             "configure",
@@ -396,18 +557,6 @@ class TypingApp:
 
         return restart
 
-    def reset_stats(self):
-        self.current_index = 0
-        self.start_time = None
-        self.correct_typed = 0
-        self.incorrect_typed = 0
-        self.user_input = []
-        self.result_label.config(text="")
-        self.wpm_label.config(text="WPM: 0.00")
-        self.accuracy_label.config(text="Accuracy: 0.00%")
-        self.stats_running = True
-        self.update_display()
-
     def blink_cursor(self):
         self.blink_state = not self.blink_state
         self.update_display()
@@ -415,8 +564,19 @@ class TypingApp:
             self.root.after(500, self.blink_cursor)
 
     def on_resize(self, event):
-        new_width = event.width // 10
-        self.text_display.config(width=new_width)
+        # Adjust the width of the text display based on the window size
+        new_width = event.width
+
+        # Estimate an appropriate width for the text display
+        new_text_width = new_width // (
+            self.font_size.get() // 2
+        )  # Adjusting character width calculation
+
+        # Update the text widget's width
+        self.text_display.config(width=new_text_width)
+
+        # Refresh the display text to reapply word wrapping according to the new size
+        self.update_display()
 
 
 if __name__ == "__main__":
