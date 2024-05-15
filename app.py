@@ -1,9 +1,11 @@
 import tkinter as tk
-from tkinter import messagebox, ttk, font, IntVar, StringVar
+from tkinter import messagebox, ttk, font, IntVar, StringVar, colorchooser
 import time
 import random
 import json
 import os
+import bisect
+
 
 SETTINGS_FILE = "settings.json"
 TEXT_FILE = "20k.txt"
@@ -16,8 +18,8 @@ def load_settings():
     return {
         "font_name": "JetBrains Mono",
         "font_size": 15,
-        "bg_color": "#1c1c1c",
-        "text_color": "#ecf0f1",
+        "bg_color": "#282828",
+        "text_color": "#d8d8d8",
         "difficulty": "Medium",
     }
 
@@ -30,21 +32,26 @@ def save_settings(settings):
 def get_words():
     with open(TEXT_FILE, "r") as file:
         words = file.read().splitlines()
-        filtered_words = [word for word in words if len(word) >= 3 | len(word) <= 8]
+        filtered_words = [word for word in words if len(word) >= 3 and len(word) <= 8]
         return filtered_words
 
 
-def add_weight(words):
-    weighted_words = []
+def generate_word(words):
     total_words = len(words)
-    for index, word in enumerate(words):
-        weight = total_words - index  # Higher index, lower weight
-        weighted_words.extend([word] * weight)
-    return weighted_words
+    total_weight = total_words * (total_words + 1) // 2
+    rand_weight = random.randint(1, total_weight)
 
+    # Precompute cumulative weights
+    cumulative_weights = []
+    cumulative_weight = 0
+    for index in range(total_words):
+        weight = total_words - index
+        cumulative_weight += weight
+        cumulative_weights.append(cumulative_weight)
 
-def generate_word(weighted_words):
-    return random.choice(weighted_words)
+    # Use binary search to find the word corresponding to rand_weight
+    word_index = bisect.bisect_left(cumulative_weights, rand_weight)
+    return words[word_index]
 
 
 def generate_sentence(weighted_words, min_words, max_words):
@@ -74,7 +81,7 @@ def generate_text(
     max_words,
 ):
     num_paragraphs = random.randint(min_paragraphs, max_paragraphs)
-    text = "\n\n".join(
+    text = " ".join(
         generate_paragraph(
             weighted_words, min_sentences, max_sentences, min_words, max_words
         )
@@ -87,17 +94,17 @@ class TypingApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Typing Practice App")
-        self.root.geometry("800x400")
+        self.root.geometry("800x300")
+        self.root.minsize(800, 600)
 
         settings = load_settings()
-        self.font_name = StringVar(value=settings.get("font_name", "Courier"))
+        self.font_name = StringVar(value=settings.get("font_name", "JetBrains Mono"))
         self.font_size = IntVar(value=settings.get("font_size", 18))
-        self.bg_color = StringVar(value=settings.get("bg_color", "#1c1c1c"))
-        self.text_color = StringVar(value=settings.get("text_color", "#ecf0f1"))
+        self.bg_color = StringVar(value=settings.get("bg_color", "#282828"))
+        self.text_color = StringVar(value=settings.get("text_color", "#d8d8d8"))
         self.difficulty = StringVar(value=settings.get("difficulty", "Medium"))
 
         self.words = get_words()
-        self.weighted_words = add_weight(self.words)
         self.generate_texts()
 
         self.text_to_type = self.texts[self.difficulty.get()]
@@ -108,7 +115,7 @@ class TypingApp:
         self.incorrect_typed = 0
         self.blink_state = True
         self.stats_running = True
-        self.total_keypresses = 0  # Add this line
+        self.total_keypresses = 0
 
         self.setup_styles()
         self.create_widgets()
@@ -121,7 +128,7 @@ class TypingApp:
     def generate_texts(self):
         self.texts = {
             "Easy": generate_text(
-                self.weighted_words,
+                self.words,
                 min_paragraphs=1,
                 max_paragraphs=1,
                 min_sentences=1,
@@ -130,7 +137,7 @@ class TypingApp:
                 max_words=4,
             ),
             "Medium": generate_text(
-                self.weighted_words,
+                self.words,
                 min_paragraphs=1,
                 max_paragraphs=2,
                 min_sentences=1,
@@ -139,7 +146,7 @@ class TypingApp:
                 max_words=5,
             ),
             "Hard": generate_text(
-                self.weighted_words,
+                self.words,
                 min_paragraphs=2,
                 max_paragraphs=3,
                 min_sentences=2,
@@ -169,12 +176,7 @@ class TypingApp:
 
     def create_widgets(self):
         self.container = ttk.Frame(self.root, style="TFrame")
-        self.container.pack(
-            padx=20,
-            pady=20,
-            fill="both",
-            expand=True,
-        )
+        self.container.pack(padx=20, pady=20, fill="both", expand=True)
 
         self.text_display = tk.Text(
             self.container,
@@ -182,12 +184,12 @@ class TypingApp:
             fg=self.text_color.get(),
             bg=self.bg_color.get(),
             wrap="word",
+            height=5,
+            width=30,
             insertbackground=self.text_color.get(),
         )
-        # Use pack with fill and expand to ensure it takes up available space
         self.text_display.pack(anchor="center", pady=(0, 20), fill="both", expand=True)
-
-        self.text_display.config(state=tk.DISABLED)
+        self.text_display.config(state=tk.DISABLED, padx=10, pady=10)
 
         self.stats_frame = ttk.Frame(self.container, style="TFrame")
         self.stats_frame.pack(anchor="center", pady=10, fill="x")
@@ -201,7 +203,10 @@ class TypingApp:
         self.result_label = ttk.Label(self.container, text="", style="TLabel")
         self.result_label.pack(anchor="center", pady=10)
         self.restart_button = ttk.Button(
-            self.container, text="Restart", style="TButton", command=self.restart
+            self.container,
+            text="Restart",
+            style="TButton",
+            command=self.show_restart_popup,
         )
         self.restart_button.pack(anchor="center", pady=10)
         self.settings_button = ttk.Button(
@@ -216,6 +221,7 @@ class TypingApp:
         settings_window = tk.Toplevel(self.root)
         settings_window.title("Settings")
         settings_window.geometry("400x450")
+        settings_window.configure(bg=self.bg_color.get())
 
         settings_frame = ttk.Frame(settings_window, padding="10", style="TFrame")
         settings_frame.pack(fill="both", expand=True)
@@ -258,14 +264,18 @@ class TypingApp:
         ttk.Label(settings_frame, text="Background Color:", style="TLabel").pack(
             anchor="w", pady=5
         )
-        bg_color_entry = ttk.Entry(settings_frame, textvariable=self.bg_color)
-        bg_color_entry.pack(anchor="w", fill="x", pady=5)
+        bg_color_button = ttk.Button(
+            settings_frame, text="Choose Color", command=self.choose_bg_color
+        )
+        bg_color_button.pack(anchor="w", pady=5)
 
         ttk.Label(settings_frame, text="Text Color:", style="TLabel").pack(
             anchor="w", pady=5
         )
-        text_color_entry = ttk.Entry(settings_frame, textvariable=self.text_color)
-        text_color_entry.pack(anchor="w", fill="x", pady=5)
+        text_color_button = ttk.Button(
+            settings_frame, text="Choose Color", command=self.choose_text_color
+        )
+        text_color_button.pack(anchor="w", pady=5)
 
         apply_button = ttk.Button(
             settings_frame,
@@ -274,67 +284,15 @@ class TypingApp:
         )
         apply_button.pack(anchor="center", pady=20)
 
-    def open_settings(self):
-        settings_window = tk.Toplevel(self.root)
-        settings_window.title("Settings")
-        settings_window.geometry("400x450")
+    def choose_bg_color(self):
+        color_code = colorchooser.askcolor(title="Choose Background Color")
+        if color_code:
+            self.bg_color.set(color_code[1])
 
-        settings_frame = ttk.Frame(settings_window, padding="10", style="TFrame")
-        settings_frame.pack(fill="both", expand=True)
-
-        ttk.Label(settings_frame, text="Font Name:", style="TLabel").pack(
-            anchor="w", pady=5
-        )
-        available_fonts = font.families()
-        font_name_combobox = ttk.Combobox(
-            settings_frame,
-            textvariable=self.font_name,
-            values=available_fonts,
-            state="readonly",
-        )
-        font_name_combobox.pack(anchor="w", fill="x", pady=5)
-
-        ttk.Label(settings_frame, text="Select Difficulty:", style="TLabel").pack(
-            anchor="w", pady=5
-        )
-        difficulty_options = ttk.Combobox(
-            settings_frame,
-            textvariable=self.difficulty,
-            values=["Easy", "Medium", "Hard"],
-            state="readonly",
-        )
-        difficulty_options.pack(anchor="w", fill="x", pady=5)
-
-        ttk.Label(settings_frame, text="Adjust Font Size:", style="TLabel").pack(
-            anchor="w", pady=5
-        )
-        font_size_slider = ttk.Scale(
-            settings_frame,
-            from_=10,
-            to=50,
-            variable=self.font_size,
-            orient="horizontal",
-        )
-        font_size_slider.pack(anchor="w", fill="x", pady=5)
-
-        ttk.Label(settings_frame, text="Background Color:", style="TLabel").pack(
-            anchor="w", pady=5
-        )
-        bg_color_entry = ttk.Entry(settings_frame, textvariable=self.bg_color)
-        bg_color_entry.pack(anchor="w", fill="x", pady=5)
-
-        ttk.Label(settings_frame, text="Text Color:", style="TLabel").pack(
-            anchor="w", pady=5
-        )
-        text_color_entry = ttk.Entry(settings_frame, textvariable=self.text_color)
-        text_color_entry.pack(anchor="w", fill="x", pady=5)
-
-        apply_button = ttk.Button(
-            settings_frame,
-            text="Apply",
-            command=lambda: self.apply_settings(settings_window),
-        )
-        apply_button.pack(anchor="center", pady=20)
+    def choose_text_color(self):
+        color_code = colorchooser.askcolor(title="Choose Text Color")
+        if color_code:
+            self.text_color.set(color_code[1])
 
     def apply_settings(self, settings_window):
         self.setup_styles()
@@ -382,8 +340,7 @@ class TypingApp:
         self.text_display.config(state=tk.NORMAL)
         self.text_display.delete("1.0", tk.END)
 
-        line_width = self.text_display.winfo_screenwidth() // self.font_size.get()
-        # Ensure line_width is not zero to avoid ZeroDivisionError
+        line_width = self.text_display.winfo_width()
         if line_width == 0:
             line_width = 1
 
@@ -425,7 +382,7 @@ class TypingApp:
         self.text_display.tag_config("incorrect", foreground="#e74c3c")
         self.text_display.tag_config(
             "current",
-            foreground="#ecf0f1" if self.blink_state else "#5c5c5c",
+            foreground=self.text_color.get() if self.blink_state else "#5c5c5c",
             background="#2c2c2c",
         )
         self.text_display.tag_config("untouched", foreground="#95a5a6")
@@ -564,18 +521,11 @@ class TypingApp:
             self.root.after(500, self.blink_cursor)
 
     def on_resize(self, event):
-        # Adjust the width of the text display based on the window size
         new_width = event.width
-
-        # Estimate an appropriate width for the text display
-        new_text_width = new_width // (
-            self.font_size.get() // 2
-        )  # Adjusting character width calculation
-
-        # Update the text widget's width
+        new_text_width = new_width - 40
+        if new_text_width < 20:
+            new_text_width = 20
         self.text_display.config(width=new_text_width)
-
-        # Refresh the display text to reapply word wrapping according to the new size
         self.update_display()
 
 
