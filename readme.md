@@ -1,6 +1,6 @@
 # Maroon Type README
 
-Welcome to the Maroon Typing, where you can flex your fingers, test your Maroon speed, and possibly find out if your keyboard can keep up with you. Here's everything you need to get started, explained with a touch of humor to make your journey enjoyable.
+Welcome to the Maroon Type, where you can flex your fingers, test your Maroon speed, and possibly find out if your keyboard can keep up with you. Here's everything you need to get started, explained with a touch of humor to make your journey enjoyable.
 
 ## Table of Contents
 
