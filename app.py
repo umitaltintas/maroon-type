@@ -90,10 +90,10 @@ def generate_text(
     return text
 
 
-class TypingApp:
+class MaroonTyping:
     def __init__(self, root):
         self.root = root
-        self.root.title("Typing Practice App")
+        self.root.title("Maroon Type")
         self.root.geometry("800x300")
         self.root.minsize(800, 600)
 
@@ -427,12 +427,12 @@ class TypingApp:
                 self.incorrect_typed += 1
 
             if self.current_index == len(self.text_to_type):
-                self.finish_typing()
+                self.finish_Maroon()
 
         self.update_display()
         self.update_stats()
 
-    def finish_typing(self):
+    def finish_Maroon(self):
         time_taken = time.time() - self.start_time
         correct_words = self.correct_typed / 5
         words_per_minute = correct_words / (time_taken / 60)
@@ -531,5 +531,5 @@ class TypingApp:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = TypingApp(root)
+    app = MaroonTyping(root)
     root.mainloop()
