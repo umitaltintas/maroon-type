@@ -6,6 +6,8 @@ from ..config import Config
 
 
 class FinishOverlay(QFrame):
+    lbl_finish_score: QLabel
+    lbl_finish_sub: QLabel
     """Final score overlay that appears on top of the text frame."""
 
     def __init__(self, parent=None):

@@ -13,6 +13,10 @@ from .settings_dialog import SettingsDialog
 
 
 class MainWindow(QMainWindow):
+    lbl_stats: QLabel
+    lbl_text: QLabel
+    lbl_info: QLabel
+    finish_overlay: FinishOverlay
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Maroon Type - Modular Pro")
@@ -24,7 +28,6 @@ class MainWindow(QMainWindow):
         self.theme_index = self.theme_names.index(Config.ACTIVE_THEME)
         self.running_blur_radius = 5
         self.start_in_focus = False
-        self.finish_overlay: FinishOverlay | None = None
 
         self.setup_ui()
         self.connect_signals()
@@ -121,7 +124,7 @@ class MainWindow(QMainWindow):
         shadow.setOffset(0, 10)
         self.text_frame.setGraphicsEffect(shadow)
 
-        self.finish_overlay = FinishOverlay(self.text_frame)
+        self.finish_overlay: FinishOverlay = FinishOverlay(self.text_frame)
         self.finish_overlay.raise_()
         self._update_overlay_geometry()
 
