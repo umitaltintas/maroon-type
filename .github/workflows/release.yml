@@ -1,0 +1,39 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build app (PyInstaller)
+        run: python -m PyInstaller --clean --noconfirm app.spec
+
+      - name: Archive app
+        run: |
+          cd dist
+          zip -r MaroonType-macos.zip MaroonType.app
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/MaroonType-macos.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
