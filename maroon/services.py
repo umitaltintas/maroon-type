@@ -12,7 +12,7 @@ class WordService:
     _instance = None
 
     def __init__(self):
-        self.word_pool = ["loading"]
+        self.word_pool = Config.LOCAL_WORDS.copy()
         self.lock = threading.Lock()
         self._start_download()
 
@@ -31,7 +31,7 @@ class WordService:
     def get_words(self, count: int) -> List[str]:
         with self.lock:
             if not self.word_pool:
-                return ["error"]
+                return Config.LOCAL_WORDS[:count]
             pool_len = len(self.word_pool)
             return [self.word_pool[int(random.triangular(0, pool_len, 0))] for _ in range(count)]
 
@@ -39,6 +39,9 @@ class WordService:
         try:
             r = requests.get(Config.QUOTE_API_URL, verify=False, timeout=3)
             data = r.json()
-            return data['content'].replace("’", "'").replace("“", '"').replace("”", '"')
+            content = data.get("content", "")
+            author = data.get("author", "Unknown")
+            formatted = content.replace("’", "'").replace("“", '"').replace("”", '"')
+            return f"{formatted} — {author}"
         except Exception:
-            return "The quick brown fox jumps over the lazy dog."
+            return "The quick brown fox jumps over the lazy dog. — Fallback"
