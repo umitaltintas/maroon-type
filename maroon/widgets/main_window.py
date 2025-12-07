@@ -1,51 +1,15 @@
-from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                             QLabel, QFrame, QGraphicsDropShadowEffect, QGraphicsBlurEffect,
-                             QDialog, QComboBox, QCheckBox, QPushButton, QSpinBox)
-from PyQt6.QtCore import Qt, pyqtSignal, QEasingCurve, QPropertyAnimation, QAbstractAnimation
-from PyQt6.QtGui import QFont, QCursor, QColor
+from PyQt6.QtCore import QAbstractAnimation, QEasingCurve, QPropertyAnimation, Qt
+from PyQt6.QtGui import QColor, QCursor, QFont
+from PyQt6.QtWidgets import (QFrame, QGraphicsBlurEffect, QGraphicsDropShadowEffect,
+                             QHBoxLayout, QLabel, QMainWindow, QPushButton, QVBoxLayout,
+                             QWidget)
 
-from .config import Config
-from .engine import GameEngine
-from .modes import WordMode, QuoteMode, TimeMode, SuddenDeathMode, IGameMode
-
-
-class ModeButton(QLabel):
-    clicked = pyqtSignal(object)
-
-    def __init__(self, text: str, mode_instance):
-        super().__init__(text)
-        self.mode_instance = mode_instance
-        self.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-        self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.setStyleSheet(self._style(default=True))
-        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._active = False
-
-    def mousePressEvent(self, e):
-        self.clicked.emit(self.mode_instance)
-
-    def set_active(self, active: bool):
-        self._active = active
-        self.setStyleSheet(self._style(active=active))
-
-    def enterEvent(self, event):
-        self.setStyleSheet(self._style(active=self._active, hover=True))
-        return super().enterEvent(event)
-
-    def leaveEvent(self, event):
-        self.setStyleSheet(self._style(active=self._active))
-        return super().leaveEvent(event)
-
-    def _style(self, default=False, active=False, hover=False) -> str:
-        c = Config.COLORS
-        base = c['text_sub'] if not active else c['active_mode']
-        bg = "transparent"
-        if hover:
-            bg = c['surface_alt']
-        return (
-            f"color: {base}; padding: 7px 10px; border-radius: 6px;"
-            f"letter-spacing: 0.4px; background-color: {bg};"
-        )
+from ..config import Config
+from ..engine import GameEngine
+from ..modes import IGameMode, QuoteMode, SuddenDeathMode, TimeMode, WordMode
+from .finish_overlay import FinishOverlay
+from .mode_button import ModeButton
+from .settings_dialog import SettingsDialog
 
 
 class MainWindow(QMainWindow):
@@ -60,9 +24,7 @@ class MainWindow(QMainWindow):
         self.theme_index = self.theme_names.index(Config.ACTIVE_THEME)
         self.running_blur_radius = 5
         self.start_in_focus = False
-        self.finish_overlay = None
-        self.lbl_finish_score = None
-        self.lbl_finish_sub = None
+        self.finish_overlay: FinishOverlay | None = None
 
         self.setup_ui()
         self.connect_signals()
@@ -159,23 +121,7 @@ class MainWindow(QMainWindow):
         shadow.setOffset(0, 10)
         self.text_frame.setGraphicsEffect(shadow)
 
-        # Final score overlay that appears after a round.
-        self.finish_overlay = QFrame(self.text_frame)
-        self.finish_overlay.hide()
-        self.finish_overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        overlay_layout = QVBoxLayout(self.finish_overlay)
-        overlay_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self.lbl_finish_score = QLabel("")
-        self.lbl_finish_score.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_finish_score.setFont(QFont(Config.FONT_FAMILY, 46, QFont.Weight.Black))
-        self.lbl_finish_sub = QLabel("")
-        self.lbl_finish_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_finish_sub.setWordWrap(True)
-        self.lbl_finish_sub.setFont(QFont(Config.FONT_FAMILY, 16, QFont.Weight.DemiBold))
-
-        overlay_layout.addWidget(self.lbl_finish_score)
-        overlay_layout.addWidget(self.lbl_finish_sub)
+        self.finish_overlay = FinishOverlay(self.text_frame)
         self.finish_overlay.raise_()
         self._update_overlay_geometry()
 
@@ -229,18 +175,9 @@ class MainWindow(QMainWindow):
     def show_finish_overlay(self, success: bool):
         if not self.finish_overlay:
             return
-        c = Config.COLORS
         wpm = getattr(self.engine, "last_wpm", 0)
         acc = getattr(self.engine, "last_acc", 0)
-        accent = c['correct'] if success else c['death']
-        status = "Tamamlandı" if success else "Hata!"
-        self.lbl_finish_score.setText(f"{wpm} WPM")
-        self.lbl_finish_sub.setText(f"{status} • Doğruluk: {acc}%\nTAB ile yeniden başlat.")
-        self.lbl_finish_score.setStyleSheet(
-            f"color: {accent};"
-        )
-        self.finish_overlay.show()
-        self.finish_overlay.raise_()
+        self.finish_overlay.set_result(success, wpm, acc)
         self._update_overlay_geometry()
 
     def set_blur(self, radius):
@@ -345,7 +282,7 @@ class MainWindow(QMainWindow):
 
     def _update_overlay_geometry(self):
         if self.finish_overlay:
-            self.finish_overlay.setGeometry(self.text_frame.rect())
+            self.finish_overlay.update_geometry(self.text_frame.rect())
 
     def apply_theme(self, border_color=None):
         c = Config.COLORS
@@ -374,18 +311,7 @@ class MainWindow(QMainWindow):
         )
         self.lbl_info.setStyleSheet(f"color: {c['text_sub']}; letter-spacing: 0.3px;")
         if self.finish_overlay:
-            self.finish_overlay.setStyleSheet(
-                f"background-color: rgba(0, 0, 0, 150); border: 2px solid {c['border']}; "
-                f"border-radius: 16px; padding: 28px;"
-            )
-        if self.lbl_finish_score:
-            self.lbl_finish_score.setStyleSheet(
-                f"color: {c['accent']};"
-            )
-        if self.lbl_finish_sub:
-            self.lbl_finish_sub.setStyleSheet(
-                f"color: {c['text_main']}; letter-spacing: 0.3px;"
-            )
+            self.finish_overlay.apply_theme()
         for btn in self.mode_buttons:
             btn.setStyleSheet(btn._style(active=btn._active))
         style_color = border_color
@@ -402,41 +328,17 @@ class MainWindow(QMainWindow):
         self.lbl_info.setText(text)
 
     def open_settings(self):
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Settings")
-        layout = QVBoxLayout(dialog)
-
-        theme_combo = QComboBox(dialog)
-        theme_combo.addItems(self.theme_names)
-        theme_combo.setCurrentIndex(self.theme_index)
-        layout.addWidget(QLabel("Theme"))
-        layout.addWidget(theme_combo)
-
-        blur_spin = QSpinBox(dialog)
-        blur_spin.setRange(0, 20)
-        blur_spin.setValue(self.running_blur_radius)
-        layout.addWidget(QLabel("Blur while typing"))
-        layout.addWidget(blur_spin)
-
-        focus_check = QCheckBox("Start in focus mode (hide header)", dialog)
-        focus_check.setChecked(self.start_in_focus)
-        layout.addWidget(focus_check)
-
-        btns = QHBoxLayout()
-        btn_save = QPushButton("Save", dialog)
-        btn_cancel = QPushButton("Cancel", dialog)
-        btns.addWidget(btn_save)
-        btns.addWidget(btn_cancel)
-        layout.addLayout(btns)
-
-        btn_save.clicked.connect(dialog.accept)
-        btn_cancel.clicked.connect(dialog.reject)
+        dialog = SettingsDialog(
+            self,
+            self.theme_names,
+            self.theme_index,
+            self.running_blur_radius,
+            self.start_in_focus,
+        )
 
         if dialog.exec():
-            self.theme_index = theme_combo.currentIndex()
+            self.theme_index, self.running_blur_radius, self.start_in_focus = dialog.values()
             Config.set_theme(self.theme_names[self.theme_index])
-            self.running_blur_radius = blur_spin.value()
-            self.start_in_focus = focus_check.isChecked()
             if self.start_in_focus and not self.focus_mode:
                 self.toggle_focus_mode()
             if not self.start_in_focus and self.focus_mode:
