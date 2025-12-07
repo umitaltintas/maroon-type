@@ -1,11 +1,12 @@
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                             QLabel, QFrame, QGraphicsDropShadowEffect, QGraphicsBlurEffect)
+                             QLabel, QFrame, QGraphicsDropShadowEffect, QGraphicsBlurEffect,
+                             QDialog, QComboBox, QCheckBox, QPushButton, QSpinBox)
 from PyQt6.QtCore import Qt, pyqtSignal, QEasingCurve, QPropertyAnimation, QAbstractAnimation
 from PyQt6.QtGui import QFont, QCursor, QColor
 
 from .config import Config
 from .engine import GameEngine
-from .modes import WordMode, QuoteMode, TimeMode, SuddenDeathMode
+from .modes import WordMode, QuoteMode, TimeMode, SuddenDeathMode, IGameMode
 
 
 class ModeButton(QLabel):
@@ -57,6 +58,8 @@ class MainWindow(QMainWindow):
         self.focus_mode = False
         self.theme_names = list(Config.THEMES.keys())
         self.theme_index = self.theme_names.index(Config.ACTIVE_THEME)
+        self.running_blur_radius = 5
+        self.start_in_focus = False
 
         self.setup_ui()
         self.connect_signals()
@@ -114,6 +117,16 @@ class MainWindow(QMainWindow):
             self.toolbar_layout.addWidget(btn)
             self.mode_buttons.append(btn)
 
+        self.toolbar_layout.addStretch(1)
+        self.btn_settings = QPushButton("⚙ Settings")
+        self.btn_settings.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.btn_settings.setStyleSheet(
+            f"color: {Config.COLORS['text_main']}; background: transparent; border: none; "
+            f"padding: 6px 10px; border-radius: 6px;"
+        )
+        self.btn_settings.clicked.connect(self.open_settings)
+        self.toolbar_layout.addWidget(self.btn_settings)
+
         self.header_layout.addWidget(self.toolbar)
         self.header_layout.addWidget(QLabel())
 
@@ -161,11 +174,13 @@ class MainWindow(QMainWindow):
         self.engine.game_finished.connect(self.on_game_finish)
         self.engine.game_started.connect(lambda: self.set_blur(0))
 
-    def change_mode(self, mode):
+    def change_mode(self, mode: IGameMode):
+        assert mode is not None
         self.engine.set_mode(mode)
         for btn in self.mode_buttons:
             btn.set_active(btn.mode_instance == mode)
-        self.update_style(mode.style_color)
+        style_color = mode.style_color if mode else Config.COLORS["border"]
+        self.update_style(style_color)
         self._pulse_text_frame()
 
     def update_ui(self, stats_text, html):
@@ -206,13 +221,17 @@ class MainWindow(QMainWindow):
 
         if key == Qt.Key.Key_Tab:
             self.engine.reset_game()
-            self.update_style(self.engine.mode.style_color)
+            style_color = self.engine.mode.style_color if self.engine.mode else Config.COLORS['border']
+            self.update_style(style_color)
             return
         if key == Qt.Key.Key_F and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             self.toggle_focus_mode()
             return
         if key == Qt.Key.Key_T and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             self.toggle_theme()
+            return
+        if key == Qt.Key.Key_Comma and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self.open_settings()
             return
 
         if key == Qt.Key.Key_Backspace:
@@ -300,12 +319,59 @@ class MainWindow(QMainWindow):
         self.lbl_info.setStyleSheet(f"color: {c['text_sub']}; letter-spacing: 0.3px;")
         for btn in self.mode_buttons:
             btn.setStyleSheet(btn._style(active=btn._active))
-        self.update_style(border_color or self.engine.mode.style_color)
+        style_color = border_color
+        if not style_color and self.engine.mode:
+            style_color = self.engine.mode.style_color
+        self.update_style(style_color or Config.COLORS["border"])
 
     def update_info_text(self):
         theme = Config.ACTIVE_THEME.capitalize()
         if self.focus_mode:
             text = f"Focus Mode ON | Theme: {theme} | Ctrl+F to exit"
         else:
-            text = f"TAB restart | Ctrl+F focus | Ctrl+T theme ({theme})"
+            text = f"TAB restart | Ctrl+F focus | Ctrl+T theme ({theme}) | Ctrl+, settings"
         self.lbl_info.setText(text)
+
+    def open_settings(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Settings")
+        layout = QVBoxLayout(dialog)
+
+        theme_combo = QComboBox(dialog)
+        theme_combo.addItems(self.theme_names)
+        theme_combo.setCurrentIndex(self.theme_index)
+        layout.addWidget(QLabel("Theme"))
+        layout.addWidget(theme_combo)
+
+        blur_spin = QSpinBox(dialog)
+        blur_spin.setRange(0, 20)
+        blur_spin.setValue(self.running_blur_radius)
+        layout.addWidget(QLabel("Blur while typing"))
+        layout.addWidget(blur_spin)
+
+        focus_check = QCheckBox("Start in focus mode (hide header)", dialog)
+        focus_check.setChecked(self.start_in_focus)
+        layout.addWidget(focus_check)
+
+        btns = QHBoxLayout()
+        btn_save = QPushButton("Save", dialog)
+        btn_cancel = QPushButton("Cancel", dialog)
+        btns.addWidget(btn_save)
+        btns.addWidget(btn_cancel)
+        layout.addLayout(btns)
+
+        btn_save.clicked.connect(dialog.accept)
+        btn_cancel.clicked.connect(dialog.reject)
+
+        if dialog.exec():
+            self.theme_index = theme_combo.currentIndex()
+            Config.set_theme(self.theme_names[self.theme_index])
+            self.running_blur_radius = blur_spin.value()
+            self.start_in_focus = focus_check.isChecked()
+            if self.start_in_focus and not self.focus_mode:
+                self.toggle_focus_mode()
+            if not self.start_in_focus and self.focus_mode:
+                self.toggle_focus_mode()
+            self.apply_theme()
+            self.engine._emit_update(final=self.engine.finished)
+            self.update_info_text()

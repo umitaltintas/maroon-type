@@ -16,7 +16,7 @@ class IGameMode(ABC):
         pass
 
     @abstractmethod
-    def get_stats_text(self, wpm: int, acc: int, time_left: int) -> str:
+    def get_stats_text(self, wpm: int, acc: int, time_left: float) -> str:
         pass
 
     @abstractmethod
@@ -39,7 +39,7 @@ class WordMode(IGameMode):
     def is_finished(self, inp: str, tgt: str, _: float) -> bool:
         return len(inp) >= len(tgt)
 
-    def get_stats_text(self, wpm: int, acc: int, _: int) -> str:
+    def get_stats_text(self, wpm: int, acc: int, _: float) -> str:
         return f"WPM: {wpm} | ACC: {acc}%"
 
     def validate_input(self, inp: str, tgt: str) -> bool:
@@ -56,7 +56,7 @@ class TimeMode(IGameMode):
     def is_finished(self, _: str, __: str, t: float) -> bool:
         return t >= self.seconds
 
-    def get_stats_text(self, wpm: int, _: int, t: int) -> str:
+    def get_stats_text(self, wpm: int, _: int, t: float) -> str:
         return f"Time: {int(self.seconds - t)}s | WPM: {wpm}"
 
     def validate_input(self, inp: str, tgt: str) -> bool:

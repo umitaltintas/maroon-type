@@ -1,4 +1,5 @@
 import time
+from typing import Optional
 
 from PyQt6.QtCore import QTimer, QObject, pyqtSignal
 
@@ -16,7 +17,7 @@ class GameEngine(QObject):
     def __init__(self):
         super().__init__()
         self.service = WordService()
-        self.mode: IGameMode = None
+        self.mode: Optional[IGameMode] = None
         self.target_text = ""
         self.user_input = ""
         self.start_time = None
@@ -31,6 +32,7 @@ class GameEngine(QObject):
         self.reset_game()
 
     def reset_game(self):
+        assert self.mode is not None
         self.target_text = self.mode.generate_target(self.service)
         self.user_input = ""
         self.start_time = None
@@ -53,6 +55,7 @@ class GameEngine(QObject):
             if isinstance(self.mode, TimeMode):
                 self.timer.start(100)
 
+        assert self.mode is not None
         if not self.mode.validate_input(text_input, self.target_text):
             self.user_input = text_input
             self._finish_game(success=False)
@@ -66,6 +69,7 @@ class GameEngine(QObject):
             self._finish_game(success=True)
 
     def _on_tick(self):
+        assert self.mode is not None
         elapsed = time.time() - self.start_time if self.start_time else 0
         self._emit_update()
         if self.mode.is_finished(self.user_input, self.target_text, elapsed):
@@ -90,7 +94,10 @@ class GameEngine(QObject):
         wpm = int((correct_chars / 5) / (elapsed / 60))
         acc = int((correct_chars / len(self.user_input) * 100)) if self.user_input else 100
 
-        stats_text = self.mode.get_stats_text(wpm, acc, elapsed)
+        if self.mode:
+            stats_text = self.mode.get_stats_text(wpm, acc, elapsed)
+        else:
+            stats_text = f"WPM: {wpm} | ACC: {acc}%"
         if final:
             stats_text = f"FINISH | {stats_text}"
 
