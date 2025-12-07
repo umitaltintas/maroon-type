@@ -60,6 +60,9 @@ class MainWindow(QMainWindow):
         self.theme_index = self.theme_names.index(Config.ACTIVE_THEME)
         self.running_blur_radius = 5
         self.start_in_focus = False
+        self.finish_overlay = None
+        self.lbl_finish_score = None
+        self.lbl_finish_sub = None
 
         self.setup_ui()
         self.connect_signals()
@@ -156,6 +159,26 @@ class MainWindow(QMainWindow):
         shadow.setOffset(0, 10)
         self.text_frame.setGraphicsEffect(shadow)
 
+        # Final score overlay that appears after a round.
+        self.finish_overlay = QFrame(self.text_frame)
+        self.finish_overlay.hide()
+        self.finish_overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        overlay_layout = QVBoxLayout(self.finish_overlay)
+        overlay_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.lbl_finish_score = QLabel("")
+        self.lbl_finish_score.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_finish_score.setFont(QFont(Config.FONT_FAMILY, 46, QFont.Weight.Black))
+        self.lbl_finish_sub = QLabel("")
+        self.lbl_finish_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_finish_sub.setWordWrap(True)
+        self.lbl_finish_sub.setFont(QFont(Config.FONT_FAMILY, 16, QFont.Weight.DemiBold))
+
+        overlay_layout.addWidget(self.lbl_finish_score)
+        overlay_layout.addWidget(self.lbl_finish_sub)
+        self.finish_overlay.raise_()
+        self._update_overlay_geometry()
+
         self.update_style(Config.COLORS['border'])
         self.main_layout.addWidget(self.text_frame, stretch=1)
 
@@ -172,7 +195,7 @@ class MainWindow(QMainWindow):
     def connect_signals(self):
         self.engine.stats_updated.connect(self.update_ui)
         self.engine.game_finished.connect(self.on_game_finish)
-        self.engine.game_started.connect(lambda: self.set_blur(0))
+        self.engine.game_started.connect(self.on_game_start)
 
     def change_mode(self, mode: IGameMode):
         assert mode is not None
@@ -194,6 +217,31 @@ class MainWindow(QMainWindow):
         color = Config.COLORS['correct'] if success else Config.COLORS['death']
         self.update_style(color)
         self._pulse_text_frame()
+        self.show_finish_overlay(success)
+
+    def on_game_start(self):
+        self.set_blur(0)
+        if self.finish_overlay:
+            self.finish_overlay.hide()
+        style_color = self.engine.mode.style_color if self.engine.mode else Config.COLORS['border']
+        self.update_style(style_color)
+
+    def show_finish_overlay(self, success: bool):
+        if not self.finish_overlay:
+            return
+        c = Config.COLORS
+        wpm = getattr(self.engine, "last_wpm", 0)
+        acc = getattr(self.engine, "last_acc", 0)
+        accent = c['correct'] if success else c['death']
+        status = "Tamamlandı" if success else "Hata!"
+        self.lbl_finish_score.setText(f"{wpm} WPM")
+        self.lbl_finish_sub.setText(f"{status} • Doğruluk: {acc}%\nTAB ile yeniden başlat.")
+        self.lbl_finish_score.setStyleSheet(
+            f"color: {accent};"
+        )
+        self.finish_overlay.show()
+        self.finish_overlay.raise_()
+        self._update_overlay_geometry()
 
     def set_blur(self, radius):
         self.blur.setBlurRadius(radius)
@@ -261,6 +309,10 @@ class MainWindow(QMainWindow):
             if len(self.engine.user_input) < len(self.engine.target_text):
                 self.engine.process_input(self.engine.user_input + text)
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._update_overlay_geometry()
+
     def _pulse_text_frame(self):
         # Small opacity pulse to emphasize state change.
         effect = self.text_frame.graphicsEffect()
@@ -291,6 +343,10 @@ class MainWindow(QMainWindow):
         self.engine._emit_update(final=self.engine.finished)
         self.update_info_text()
 
+    def _update_overlay_geometry(self):
+        if self.finish_overlay:
+            self.finish_overlay.setGeometry(self.text_frame.rect())
+
     def apply_theme(self, border_color=None):
         c = Config.COLORS
         self.central_widget.setStyleSheet(
@@ -317,6 +373,19 @@ class MainWindow(QMainWindow):
             f"color: {c['text_main']}; font-size: 18px; font-family: {Config.FONT_FALLBACK};"
         )
         self.lbl_info.setStyleSheet(f"color: {c['text_sub']}; letter-spacing: 0.3px;")
+        if self.finish_overlay:
+            self.finish_overlay.setStyleSheet(
+                f"background-color: rgba(0, 0, 0, 150); border: 2px solid {c['border']}; "
+                f"border-radius: 16px; padding: 28px;"
+            )
+        if self.lbl_finish_score:
+            self.lbl_finish_score.setStyleSheet(
+                f"color: {c['accent']};"
+            )
+        if self.lbl_finish_sub:
+            self.lbl_finish_sub.setStyleSheet(
+                f"color: {c['text_main']}; letter-spacing: 0.3px;"
+            )
         for btn in self.mode_buttons:
             btn.setStyleSheet(btn._style(active=btn._active))
         style_color = border_color

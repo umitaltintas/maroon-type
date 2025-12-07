@@ -23,6 +23,9 @@ class GameEngine(QObject):
         self.start_time = None
         self.is_running = False
         self.finished = False
+        self.last_wpm = 0
+        self.last_acc = 100
+        self.last_elapsed = 0.0
         self.timer = QTimer()
         self.timer.timeout.connect(self._on_tick)
         self.set_mode(WordMode(25))
@@ -38,6 +41,9 @@ class GameEngine(QObject):
         self.start_time = None
         self.is_running = False
         self.finished = False
+        self.last_wpm = 0
+        self.last_acc = 100
+        self.last_elapsed = 0.0
         self.timer.stop()
         self._emit_update()
         self.game_started.emit()
@@ -79,8 +85,8 @@ class GameEngine(QObject):
         self.is_running = False
         self.finished = True
         self.timer.stop()
-        self.game_finished.emit(success)
         self._emit_update(final=True)
+        self.game_finished.emit(success)
 
     def _emit_update(self, final=False):
         elapsed = time.time() - self.start_time if self.start_time else 0.1
@@ -93,6 +99,9 @@ class GameEngine(QObject):
         )
         wpm = int((correct_chars / 5) / (elapsed / 60))
         acc = int((correct_chars / len(self.user_input) * 100)) if self.user_input else 100
+        self.last_wpm = wpm
+        self.last_acc = acc
+        self.last_elapsed = elapsed
 
         if self.mode:
             stats_text = self.mode.get_stats_text(wpm, acc, elapsed)
