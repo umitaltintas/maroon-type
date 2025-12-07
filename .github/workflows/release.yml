@@ -8,7 +8,15 @@ on:
 
 jobs:
   build-macos:
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: arm64
+          - runner: macos-13
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: write
     steps:
@@ -26,12 +34,12 @@ jobs:
           pip install -r requirements.txt
 
       - name: Build app (PyInstaller)
-        run: python -m PyInstaller --clean --noconfirm app.spec
+        run: python -m PyInstaller --clean --noconfirm --target-arch ${{ matrix.arch }} app.spec
 
       - name: Archive app
         run: |
           cd dist
-          zip -r MaroonType-macos.zip MaroonType.app
+          zip -r MaroonType-macos-${{ matrix.arch }}.zip MaroonType.app
 
       - name: Publish release
         uses: softprops/action-gh-release@v1
@@ -39,6 +47,6 @@ jobs:
           name: Release ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
-          files: dist/MaroonType-macos.zip
+          files: dist/MaroonType-macos-${{ matrix.arch }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
